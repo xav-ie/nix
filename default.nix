@@ -2,11 +2,11 @@ rec {
   # crates.io API returns 403 for curl's default User-Agent; route registry
   # downloads via static.crates.io. Mirrors nixpkgs f830e611. Drop once that
   # commit reaches nixos-unstable.
-  cratesIoFixOverlay = final: prev: {
-    rustPlatform = prev.rustPlatform // {
-      importCargoLock =
-        args:
-        prev.rustPlatform.importCargoLock (
+  cratesIoFixOverlay =
+    let
+      patchImportCargoLock =
+        importCargoLock: args:
+        importCargoLock (
           args
           // {
             extraRegistries = (args.extraRegistries or { }) // {
@@ -14,8 +14,21 @@ rec {
             };
           }
         );
+    in
+    final: prev: {
+      rustPlatform = prev.rustPlatform // {
+        importCargoLock = patchImportCargoLock prev.rustPlatform.importCargoLock;
+      };
+      # makeRustPlatform constructs a fresh rustPlatform via callPackage, so the
+      # override above only fixes pkgs.rustPlatform — we also need to wrap the
+      # factory so consumers that build their own rustPlatform get the fix too.
+      makeRustPlatform =
+        args:
+        let
+          rp = prev.makeRustPlatform args;
+        in
+        rp // { importCargoLock = patchImportCargoLock rp.importCargoLock; };
     };
-  };
 
   crossSystems = {
     aarch64-darwin = [
