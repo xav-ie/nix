@@ -6,25 +6,25 @@ rec {
   # crates.io API returns 403 for curl's default User-Agent; route registry
   # downloads via static.crates.io. Mirrors nixpkgs f830e611. Drop once that
   # commit reaches nixos-unstable.
-  cratesIoFixOverlay =
-    let
-      patchImportCargoLock = importCargoLock: args: importCargoLock (args // {
-        extraRegistries = (args.extraRegistries or { }) // {
-          "https://github.com/rust-lang/crates.io-index" = "https://static.crates.io/crates";
-        };
-      });
-    in
-    final: prev: {
-      rustPlatform = prev.rustPlatform // {
-        importCargoLock = patchImportCargoLock prev.rustPlatform.importCargoLock;
+  patchedImportCargoLockFor = pkgs: pkgs.runCommand "import-cargo-lock-patched.nix" { } ''
+    ${pkgs.gnused}/bin/sed \
+      's|https://crates.io/api/v1/crates|https://static.crates.io/crates|g' \
+      ${pkgs.path}/pkgs/build-support/rust/import-cargo-lock.nix > $out
+  '';
+  cratesIoFixOverlay = final: prev: {
+    rustPlatform = prev.rustPlatform // {
+      importCargoLock = prev.buildPackages.callPackage (patchedImportCargoLockFor prev) {
+        inherit (prev) cargo;
       };
-      # makeRustPlatform constructs a fresh rustPlatform via callPackage, so the
-      # override above only fixes pkgs.rustPlatform — also wrap the factory so
-      # consumers that build their own rustPlatform get the fix too.
-      makeRustPlatform = args:
-        let rp = prev.makeRustPlatform args; in
-        rp // { importCargoLock = patchImportCargoLock rp.importCargoLock; };
     };
+    makeRustPlatform = args:
+      let rp = prev.makeRustPlatform args; in
+      rp // {
+        importCargoLock = prev.buildPackages.callPackage (patchedImportCargoLockFor prev) {
+          cargo = args.cargo;
+        };
+      };
+  };
 
   # v1.82.0
   rustToolchainFileSha256 = "yMuSb5eQPO/bHv+Bcf/US8LVMbf/G/0MSfiPwBhiPpk=";
