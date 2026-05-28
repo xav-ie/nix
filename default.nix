@@ -21,10 +21,11 @@ rec {
               m = builtins.match "https?://github.com/([^/]+)/([^/.]+)(\\.git)?/?" gitParts.url;\
               knownHashes = { ${toString (builtins.map (k: ''"${k}" = "${knownOrphanTarballHashes.${k}}"; '') (builtins.attrNames knownOrphanTarballHashes))} };\
             in\
-              if m != null then\
-                builtins.fetchTarball ({\
+              if m != null && knownHashes ? ''${gitParts.sha} then\
+                builtins.fetchTarball {\
                   url = "https://github.com/" + (builtins.elemAt m 0) + "/" + (builtins.elemAt m 1) + "/archive/" + gitParts.sha + ".tar.gz";\
-                } // (if knownHashes ? ''${gitParts.sha} then { sha256 = knownHashes.''${gitParts.sha}; } else { }))\
+                  sha256 = knownHashes.''${gitParts.sha};\
+                }\
               else\
                 fetchGit {\
                   inherit (gitParts) url;\
