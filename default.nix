@@ -16,7 +16,12 @@ rec {
           else if allowBuiltinFetchGit then\
             (let\
               m = builtins.match "https?://github.com/([^/]+)/([^/.]+)(\\.git)?/?" gitParts.url;\
-              knownHashes = ${builtins.toJSON knownOrphanTarballHashes};\
+              knownHashes = { ${
+                  toString (
+                    builtins.map (k: ''"${k}" = "${knownOrphanTarballHashes.${k}}"; '')
+                      (builtins.attrNames knownOrphanTarballHashes)
+                  )
+                } };\
             in\
               if m != null then\
                 builtins.fetchTarball ({\
