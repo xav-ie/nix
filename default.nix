@@ -4,11 +4,14 @@ rec {
   # commit reaches nixos-unstable.
   patchedImportCargoLockFor =
     pkgs:
-    pkgs.runCommand "import-cargo-lock-patched.nix" { } ''
-      ${pkgs.gnused}/bin/sed \
+    (pkgs.runCommand "import-cargo-lock-patched" { } ''
+      mkdir -p $out
+      cp -r ${pkgs.path}/pkgs/build-support/rust/. $out/
+      ${pkgs.gnused}/bin/sed -i \
         's|https://crates.io/api/v1/crates|https://static.crates.io/crates|g' \
-        ${pkgs.path}/pkgs/build-support/rust/import-cargo-lock.nix > $out
-    '';
+        $out/import-cargo-lock.nix
+    '')
+    + "/import-cargo-lock.nix";
   cratesIoFixOverlay = final: prev: {
     rustPlatform = prev.rustPlatform // {
       importCargoLock = prev.buildPackages.callPackage (patchedImportCargoLockFor prev) {
