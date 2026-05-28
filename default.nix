@@ -75,7 +75,7 @@ rec {
 
     let
       inherit (pkgs) binutils lib stdenv;
-      inherit (crossPkgs) buildPlatform hostPlatform;
+      inherit (crossPkgs.stdenv) buildPlatform hostPlatform;
       inherit (lib) getExe' importTOML optional;
       inherit (hostPlatform) isWindows;
 
@@ -171,7 +171,7 @@ rec {
           crossPkgs = import nixpkgs { inherit system crossSystem; };
           crossPkg = mkDefault { inherit nixpkgs system crossPkgs; fenix = fenix.packages.${system}; };
         in
-        { "cross-${crossPkgs.hostPlatform.system}" = withGitEnvs crossPkg; };
+        { "cross-${crossPkgs.stdenv.hostPlatform.system}" = withGitEnvs crossPkg; };
     in
 
     {
