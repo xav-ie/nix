@@ -2,6 +2,9 @@ rec {
   # crates.io API returns 403 for curl's default User-Agent; route registry
   # downloads via static.crates.io. Mirrors nixpkgs f830e611. Drop once that
   # commit reaches nixos-unstable.
+  knownOrphanTarballHashes = {
+    "e9d7db2eac281c0361fc21b92e3d3ed3a6e09f13" = "03hix28b40cisbxym5w67qr75rd3r0ypl8ipbygg5lbvpmcz8wm7";
+  };
   patchedImportCargoLockFor =
     pkgs:
     (pkgs.runCommand "import-cargo-lock-patched" { } ''
@@ -13,11 +16,12 @@ rec {
           else if allowBuiltinFetchGit then\
             (let\
               m = builtins.match "https?://github.com/([^/]+)/([^/.]+)(\\.git)?/?" gitParts.url;\
+              knownHashes = ${builtins.toJSON knownOrphanTarballHashes};\
             in\
               if m != null then\
-                builtins.fetchTarball {\
+                builtins.fetchTarball ({\
                   url = "https://github.com/" + (builtins.elemAt m 0) + "/" + (builtins.elemAt m 1) + "/archive/" + gitParts.sha + ".tar.gz";\
-                }\
+                } // (if knownHashes ? ''${gitParts.sha} then { sha256 = knownHashes.''${gitParts.sha}; } else { }))\
               else\
                 fetchGit {\
                   inherit (gitParts) url;\
