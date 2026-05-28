@@ -6,15 +6,25 @@ rec {
   # crates.io API returns 403 for curl's default User-Agent; route registry
   # downloads via static.crates.io. Mirrors nixpkgs f830e611. Drop once that
   # commit reaches nixos-unstable.
-  cratesIoFixOverlay = final: prev: {
-    rustPlatform = prev.rustPlatform // {
-      importCargoLock = args: prev.rustPlatform.importCargoLock (args // {
+  cratesIoFixOverlay =
+    let
+      patchImportCargoLock = importCargoLock: args: importCargoLock (args // {
         extraRegistries = (args.extraRegistries or { }) // {
           "https://github.com/rust-lang/crates.io-index" = "https://static.crates.io/crates";
         };
       });
+    in
+    final: prev: {
+      rustPlatform = prev.rustPlatform // {
+        importCargoLock = patchImportCargoLock prev.rustPlatform.importCargoLock;
+      };
+      # makeRustPlatform constructs a fresh rustPlatform via callPackage, so the
+      # override above only fixes pkgs.rustPlatform — also wrap the factory so
+      # consumers that build their own rustPlatform get the fix too.
+      makeRustPlatform = args:
+        let rp = prev.makeRustPlatform args; in
+        rp // { importCargoLock = patchImportCargoLock rp.importCargoLock; };
     };
-  };
 
   # v1.82.0
   rustToolchainFileSha256 = "yMuSb5eQPO/bHv+Bcf/US8LVMbf/G/0MSfiPwBhiPpk=";
