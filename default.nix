@@ -3,6 +3,19 @@ let
 in
 
 rec {
+  # crates.io API returns 403 for curl's default User-Agent; route registry
+  # downloads via static.crates.io. Mirrors nixpkgs f830e611. Drop once that
+  # commit reaches nixos-unstable.
+  cratesIoFixOverlay = final: prev: {
+    rustPlatform = prev.rustPlatform // {
+      importCargoLock = args: prev.rustPlatform.importCargoLock (args // {
+        extraRegistries = (args.extraRegistries or { }) // {
+          "https://github.com/rust-lang/crates.io-index" = "https://static.crates.io/crates";
+        };
+      });
+    };
+  };
+
   # v1.82.0
   rustToolchainFileSha256 = "yMuSb5eQPO/bHv+Bcf/US8LVMbf/G/0MSfiPwBhiPpk=";
 
@@ -30,7 +43,7 @@ rec {
   mkShell =
     { nixpkgs ? <nixpkgs>
     , system ? builtins.currentSystem
-    , pkgs ? import nixpkgs { inherit system; }
+    , pkgs ? import nixpkgs { inherit system; overlays = [ cratesIoFixOverlay ]; }
     , fenix ? import (fetchTarball "https://github.com/nix-community/fenix/archive/main.tar.gz") { }
     , extraBuildInputs ? null
     , rustToolchainFile
@@ -59,8 +72,8 @@ rec {
   mkDefault =
     { nixpkgs ? <nixpkgs>
     , system ? builtins.currentSystem
-    , pkgs ? import nixpkgs { inherit system; }
-    , crossPkgs ? import nixpkgs ({ inherit system; } // (if target == null then { } else { crossSystem = { inherit isStatic; config = target; }; }))
+    , pkgs ? import nixpkgs { inherit system; overlays = [ cratesIoFixOverlay ]; }
+    , crossPkgs ? import nixpkgs ({ inherit system; overlays = [ cratesIoFixOverlay ]; } // (if target == null then { } else { crossSystem = { inherit isStatic; config = target; }; }))
     , fenix ? import (fetchTarball "https://github.com/nix-community/fenix/archive/main.tar.gz") { }
     , target ? null
     , isStatic ? false
@@ -168,7 +181,7 @@ rec {
       mkCrossPackage = system: target:
         let
           crossSystem = { config = target; isStatic = true; };
-          crossPkgs = import nixpkgs { inherit system crossSystem; };
+          crossPkgs = import nixpkgs { inherit system crossSystem; overlays = [ cratesIoFixOverlay ]; };
           crossPkg = mkDefault { inherit nixpkgs system crossPkgs; fenix = fenix.packages.${system}; };
         in
         { "cross-${crossPkgs.stdenv.hostPlatform.system}" = withGitEnvs crossPkg; };
